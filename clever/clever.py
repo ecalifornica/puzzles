@@ -1,5 +1,4 @@
 import requests
-import json
 from time import sleep
 
 
@@ -32,24 +31,18 @@ def main():
         sys.exit(1)
     else:
         letter = sys.argv[1].upper()
-    total = 0
     page = 1
     last_page = None
+    matches = []
     while not last_page or page <= last_page:
         api_data = api_request(page)
         last_page = api_data['paging']['total']
         students = api_data['data']
-        for i in xrange(len(students)):
-            if students[i]['data']['name']['last'][0] == letter:
-                total += 1
-        '''
-        result = len([students[i]['data']['name']['last'] for i, s
-            in enumerate(students) 
-            if students[i]['data']['name']['last'][0] == letter])
-        '''
+        matches.extend([s for i, s in enumerate(students) if
+                        students[i]['data']['name']['last'][0] == letter])
         page += 1
     print('Number of students whose last name begins with "{}": {}'.format(
-        letter, total))
+        letter, len(matches)))
 
 
 if __name__ == '__main__':
