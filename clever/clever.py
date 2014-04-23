@@ -3,21 +3,12 @@ import json
 from time import sleep
 
 
-def api_page_count():
-    '''Makes a request to the API to discover number of pages'''
-    r = requests.get(
-        'https://api.clever.com/v1.1/students',
-        headers={'Authorization': 'Bearer DEMO_TOKEN'})
-    response_json = json.loads(r.content)
-    page_count = response_json['paging']['total']
-    return page_count
-
-
 def api_request(page_number, sleep_length=1):
     '''Requests records from API, recursively retries if error'''
     print('Making api request for page number: {}'.format(page_number))
     r = requests.get(
-        'https://api.clever.com/v1.1/students?page={}'.format(page_number),
+        'https://api.clever.com/v1.1/students?limit=2000&page={}'
+        .format(page_number),
         headers={'Authorization': 'Bearer DEMO_TOKEN'})
     if r.status_code is not 200:
         print('status_code: {}'.format(r.status_code))
@@ -27,41 +18,36 @@ def api_request(page_number, sleep_length=1):
         if sleep_length > 16:
             print('Too many tries, exiting to avoid hammering the API')
             import sys
-            sys.exit()
+            sys.exit(1)
         response_json = api_request(page_number, sleep_length)
         return response_json
     response_json = r.json()
     return response_json
 
 
-def students_on_page(api_response):
-    '''Parses API response json for last names'''
-    students_on_page = []
-    data = api_response['data']
-    data_length = len(data)
-    for i in xrange(data_length):
-        students_on_page.append(data[i]['data']['name']['last'])
-    return students_on_page
-
-
-def count_by_last_name(letter, student_list):
-    '''Counts last names that begin with specified letter'''
-    counter = 0
-    for student in student_list:
-        if student[:1].lower() == letter.lower():
-            counter += 1
-    return counter
-
-
 def main():
     import sys
-    letter = sys.argv[1]
+    if len(sys.argv) < 2:
+        sys.stderr.write('Please specify a letter.\n')
+        sys.exit(1)
+    else:
+        letter = sys.argv[1].upper()
     total = 0
-    page_count = api_page_count()
-    for page in xrange(page_count):
-        api_response = api_request(page+1)
-        student_list = students_on_page(api_response)
-        total += count_by_last_name(letter, student_list)
+    page = 1
+    last_page = None
+    while not last_page or page <= last_page:
+        api_data = api_request(page)
+        last_page = api_data['paging']['total']
+        students = api_data['data']
+        for i in xrange(len(students)):
+            if students[i]['data']['name']['last'][0] == letter:
+                total += 1
+        '''
+        result = len([students[i]['data']['name']['last'] for i, s
+            in enumerate(students) 
+            if students[i]['data']['name']['last'][0] == letter])
+        '''
+        page += 1
     print('Number of students whose last name begins with "{}": {}'.format(
         letter, total))
 
